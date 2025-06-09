@@ -1,0 +1,119 @@
+import React, { useState } from "react";
+import axios from "axios";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  ReferenceLine
+} from "recharts";
+
+export default function StockAnalyzer() {
+  const [stockName, setStockName] = useState("");
+  const [buyPrice, setBuyPrice] = useState(0);
+  const [sellPrice, setSellPrice] = useState(0);
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [result, setResult] = useState(null);
+
+  const analyze = async () => {
+    try {
+      const response = await axios.get(
+        `https://yh-finance.p.rapidapi.com/stock/v2/get-summary`,
+        {
+          params: { symbol: `${stockName}.JK`, region: "ID" },
+          headers: {
+           curl --request GET 
+	--url https://yahoo-finance15.p.rapidapi.com/api/v1/markets/insider-trades 
+	--header 'x-rapidapi-host: yahoo-finance15.p.rapidapi.com' 
+	--header 'x-rapidapi-key: 58ca56ba1fmsh2206826b0e5af0dp1f3595jsnbb0c57517b16'
+          }
+        }
+      );
+
+      const currentPrice = response.data.price.regularMarketPrice.raw;
+      setSellPrice(currentPrice);
+
+      const power = currentPrice - buyPrice;
+      const percentage = ((currentPrice - buyPrice) / buyPrice) * 100;
+
+      const simulatedHistory = Array.from({ length: 20 }, (_, i) => ({
+        time: `T-${20 - i}`,
+        price: buyPrice + (Math.random() - 0.5) * 10
+      })).concat({ time: "Now", price: currentPrice });
+
+      setPriceHistory(simulatedHistory);
+
+      const diff = currentPrice - buyPrice;
+      const fibLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].map(level => buyPrice + diff * level);
+
+      setResult({
+        power,
+        percentage: percentage.toFixed(2),
+        direction: power > 0 ? "Naik" : power < 0 ? "Turun" : "Tetap",
+        fibLevels
+      });
+    } catch (error) {
+      console.error("Gagal ambil data saham:", error);
+      alert("Data tidak ditemukan atau API error.");
+    }
+  };
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Analisa Saham</h1>
+      <Card className="mb-4">
+        <CardContent className="space-y-4 p-4">
+          <Input
+            placeholder="Kode Saham (misal: BBRI)"
+            value={stockName}
+            onChange={(e) => setStockName(e.target.value)}
+          />
+          <Input
+            type="number"
+            placeholder="Harga Beli"
+            value={buyPrice}
+            onChange={(e) => setBuyPrice(parseFloat(e.target.value))}
+          />
+          <Button onClick={analyze}>Analisa</Button>
+        </CardContent>
+      </Card>
+
+      {result && (
+        <>
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <h2 className="text-xl font-semibold mb-2">Hasil Analisa untuk {stockName.toUpperCase()}</h2>
+              <p><strong>Arah:</strong> {result.direction}</p>
+              <p><strong>Kekuatan (Power):</strong> {result.power}</p>
+              <p><strong>Persentase:</strong> {result.percentage}%</p>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <h2 className="text-lg font-semibold mb-2">Grafik Pergerakan Harga</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={priceHistory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" />
+                  <YAxis domain={['auto', 'auto']} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="price" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  {result.fibLevels.map((level, index) => (
+                    <ReferenceLine key={index} y={level} label={`Fibo ${index}`} stroke="#10b981" strokeDasharray="3 3" />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
